@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:#f6efe4;
+    --bg-2:#efe0e9;
+    --ink:#4a3f36;
+    --ink-soft:#8a7c6d;
+    --paper:#fffaf3;
+
+    --counsellor-1:#8bbfa4;
+    --counsellor-2:#5c9a7c;
+    --counsellor-3:#4a8268;
+    --counsellor-skin-1:#f4d6ae;
+    --counsellor-skin-2:#e8bd8a;
+
+    --client-1:#f0a582;
+    --client-2:#e08157;
+    --client-3:#c96742;
+    --client-skin-1:#f7d9bd;
+    --client-skin-2:#eebf99;
+
+    --glow:#f7cf7a;
+    --glow-soft: rgba(247,207,122,0.55);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    font-family:'Nunito', sans-serif;
+    color:var(--ink);
+    background:linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  }
+
+  .room{
+    position:relative;
+    width:100%; min-height:100vh;
+    display:flex; flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:32px 20px 24px;
+  }
+
+  h1{
+    font-family:'Fredoka', sans-serif;
+    font-weight:600;
+    font-size:1.4rem;
+    letter-spacing:0.02em;
+    margin:0 0 2px;
+    color:var(--ink);
+  }
+  .subtitle{
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    margin:0 0 30px;
+    text-align:center;
+  }
+
+  .stage{
+    position:relative;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:min(9vw, 90px);
+    width:100%;
+    max-width:640px;
+    padding-bottom:24px;
+  }
+
+  .figure-wrap{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    cursor:pointer;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* ambient lamp glow that blooms behind the speaker */
+  .glow-ring{
+    position:absolute;
+    left:50%; bottom:26px;
+    transform:translate(-50%,0) scale(0.6);
+    width:230px; height:230px;
+    border-radius:50%;
+    background:radial-gradient(circle, var(--glow-soft) 0%, rgba(247,207,122,0) 68%);
+    opacity:0;
+    transition:opacity 0.5s ease, transform 0.6s ease;
+    pointer-events:none;
+  }
+  .figure-wrap.speaking .glow-ring{
+    opacity:1;
+    transform:translate(-50%,0) scale(1);
+    animation:lampPulse 2.2s ease-in-out infinite;
+  }
+  @keyframes lampPulse{
+    0%,100%{ filter:brightness(1); }
+    50%{ filter:brightness(1.18); }
+  }
+
+  .floor-shadow{
+    width:120px; height:20px;
+    border-radius:50%;
+    background:radial-gradient(ellipse, rgba(90,70,50,0.28) 0%, rgba(90,70,50,0) 72%);
+    margin-top:-6px;
+    animation:shadowBreathe 3.6s ease-in-out infinite;
+  }
+  .client .floor-shadow{ animation-delay:0.4s; }
+
+  @keyframes shadowBreathe{
+    0%,100%{ transform:scale(1); opacity:0.9;}
+    50%{ transform:scale(0.88); opacity:0.65;}
+  }
+
+  /* fixed-size slot so the bubble anchor never shifts when speaking starts,
+     and always sits centered with clear breathing room above the head */
+  .bubble-slot{
+    position:relative;
+    width:150px;
+    height:80px;
+    margin:0 auto;
+  }
+
+  .character{
+    position:relative;
+    width:150px; height:200px;
+    animation:bob 3.6s ease-in-out infinite;
+    transition: filter 0.3s ease;
+  }
+  .client .character{ animation-delay:0.4s; }
+  @keyframes bob{
+    0%,100%{ transform:translateY(0); }
+    50%{ transform:translateY(-8px); }
+  }
+
+  .figure-wrap.speaking .character{
+    filter:drop-shadow(0 0 18px var(--glow-soft));
+  }
+  .figure-wrap.listening .character{
+    filter:saturate(0.9) brightness(0.98);
+  }
+
+  /* --- body / clothes --- */
+  .body{
+    position:absolute;
+    bottom:0; left:50%;
+    transform:translateX(-50%);
+    width:118px; height:96px;
+    border-radius:58% 58% 46% 46% / 70% 70% 30% 30%;
+    transition: background 0.4s ease;
+  }
+  .counsellor .body{
+    background:radial-gradient(circle at 35% 20%, var(--counsellor-1), var(--counsellor-2) 60%, var(--counsellor-3) 100%);
+    box-shadow: inset -10px -14px 20px rgba(0,0,0,0.12), inset 6px 8px 14px rgba(255,255,255,0.35);
+  }
+  .client .body{
+    background:radial-gradient(circle at 35% 20%, var(--client-1), var(--client-2) 60%, var(--client-3) 100%);
+    box-shadow: inset -10px -14px 20px rgba(0,0,0,0.12), inset 6px 8px 14px rgba(255,255,255,0.35);
+  }
+  .collar{
+    position:absolute; bottom:78px; left:50%; transform:translateX(-50%);
+    width:56px; height:18px;
+    border-radius:0 0 30px 30px;
+    background:rgba(255,255,255,0.55);
+  }
+
+  /* --- head --- */
+  .head{
+    position:absolute;
+    top:0; left:50%;
+    transform:translateX(-50%);
+    width:104px; height:104px;
+    border-radius:50%;
+    z-index:3;
+  }
+  .counsellor .head{
+    background:radial-gradient(circle at 34% 28%, var(--counsellor-skin-1), var(--counsellor-skin-2) 75%);
+    box-shadow: inset -10px -10px 18px rgba(150,100,60,0.25), inset 8px 10px 16px rgba(255,255,255,0.5);
+  }
+  .client .head{
+    background:radial-gradient(circle at 34% 28%, var(--client-skin-1), var(--client-skin-2) 75%);
+    box-shadow: inset -10px -10px 18px rgba(150,100,60,0.25), inset 8px 10px 16px rgba(255,255,255,0.5);
+  }
+
+  /* ears live inside .head and tuck right against its edge so they read as one shape */
+  .ear{
+    position:absolute; top:34px;
+    width:16px; height:24px;
+    border-radius:50% 60% 50% 60%;
+    z-index:2;
+  }
+  .counsellor .ear{ background:radial-gradient(circle at 55% 35%, var(--counsellor-skin-1), var(--counsellor-skin-2)); }
+  .client .ear{ background:radial-gradient(circle at 55% 35%, var(--client-skin-1), var(--client-skin-2)); }
+  .ear.left{ left:-2px; }
+  .ear.right{ right:-2px; transform:scaleX(-1); }
+
+  /* hair - counsellor: neat rounded cap with a bun; client: swept fringe */
+  .hair{ position:absolute; z-index:4; }
+  .counsellor .hair.cap{
+    top:-14px; left:50%; transform:translateX(-50%);
+    width:112px; height:66px;
+    border-radius:50% 50% 44% 44%;
+    background:linear-gradient(160deg,#6b4a3a,#4a3226);
+  }
+  .counsellor .hair.bun{
+    top:-26px; left:50%; transform:translateX(-50%);
+    width:34px; height:30px;
+    border-radius:50%;
+    background:linear-gradient(160deg,#6b4a3a,#4a3226);
+  }
+  .client .hair.cap{
+    top:-16px; left:50%; transform:translateX(-50%);
+    width:116px; height:70px;
+    border-radius:50% 50% 40% 40%;
+    background:linear-gradient(160deg,#3a2a20,#241811);
+  }
+  .client .hair.fringe{
+    top:6px; left:6px;
+    width:36px; height:22px;
+    border-radius:0 100% 40% 60%;
+    background:linear-gradient(160deg,#3a2a20,#241811);
+    transform:rotate(-8deg);
+  }
+  .client .hair.fringe.right{
+    left:auto; right:4px;
+    border-radius:100% 0 60% 40%;
+    transform:rotate(8deg) scaleX(-1);
+  }
+
+  .face{
+    position:absolute; top:38px; left:50%; transform:translateX(-50%);
+    width:76px; height:46px;
+    z-index:5;
+  }
+
+  .eye{
+    position:absolute; top:6px;
+    width:22px; height:22px;
+    background:#fffaf3;
+    border-radius:50%;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.15);
+    overflow:hidden;
+  }
+  .eye.left{ left:2px; }
+  .eye.right{ right:2px; }
+
+  .pupil{
+    position:absolute;
+    top:50%; left:50%;
+    width:10px; height:10px;
+    margin:-5px 0 0 -5px;
+    border-radius:50%;
+    background:#3a2e26;
+    transition: transform 0.06s linear;
+  }
+  .pupil::after{
+    content:"";
+    position:absolute; top:1px; left:1px;
+    width:3px; height:3px; border-radius:50%;
+    background:rgba(255,255,255,0.85);
+  }
+
+  .eye .lid{
+    position:absolute; top:-2px; left:-2px; right:-2px;
+    height:6px;
+    border-radius:0 0 50% 50%;
+    transform:scaleY(0);
+    transform-origin:top;
+    transition:transform 0.09s ease;
+  }
+  .counsellor .lid{ background:var(--counsellor-skin-2); }
+  .client .lid{ background:var(--client-skin-2); }
+  .blink .lid{ transform:scaleY(3.6); }
+
+  .blush{
+    position:absolute; top:22px;
+    width:16px; height:9px;
+    border-radius:50%;
+    background:rgba(230,120,110,0.35);
+    filter:blur(1px);
+  }
+  .blush.left{ left:-6px; }
+  .blush.right{ right:-6px; }
+
+  .mouth{
+    position:absolute; top:32px; left:50%;
+    transform:translateX(-50%);
+    width:22px; height:11px;
+    border-bottom:3.5px solid var(--ink);
+    border-radius:0 0 20px 20px;
+    transition: all 0.12s ease;
+  }
+  .talking .mouth{
+    animation:talk 0.42s ease-in-out infinite;
+  }
+  @keyframes talk{
+    0%,100%{ height:11px; border-radius:0 0 20px 20px; }
+    50%{ height:6px; width:16px; border-radius:0 0 50% 50%; border-bottom-width:5px;}
+  }
+
+  /* --- name label --- */
+  .name-tag{
+    margin-top:14px;
+    font-family:'Fredoka', sans-serif;
+    font-size:0.95rem;
+    font-weight:600;
+    padding:4px 16px;
+    border-radius:20px;
+    background:var(--paper);
+    box-shadow:0 3px 8px rgba(90,70,50,0.12);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .figure-wrap.speaking .name-tag{
+    box-shadow:0 0 0 2px var(--glow), 0 4px 14px var(--glow-soft);
+    transform:translateY(-2px);
+  }
+  .counsellor .name-tag{ color:var(--counsellor-3); }
+  .client .name-tag{ color:var(--client-3); }
+
+  /* --- typing indicator bubble (dots only), anchored to a fixed slot so it never drifts --- */
+  .bubble{
+    position:absolute;
+    bottom:18px;
+    left:50%;
+    transform:translateX(-50%) translateY(6px) scale(0.9);
+    background:var(--paper);
+    border-radius:16px;
+    padding:9px 14px;
+    box-shadow:0 6px 18px rgba(90,70,50,0.16);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.28s ease, transform 0.28s ease;
+  }
+  .bubble::after{
+    content:"";
+    position:absolute; top:100%; left:50%;
+    transform:translateX(-50%);
+    border:8px solid transparent;
+    border-top-color:var(--paper);
+  }
+  .figure-wrap.speaking .bubble{
+    opacity:1;
+    transform:translateX(-50%) translateY(0) scale(1);
+  }
+
+  .dots{
+    display:flex; gap:4px; justify-content:center; align-items:center; height:14px;
+  }
+  .dots span{
+    width:6px; height:6px; border-radius:50%;
+    background:var(--ink-soft);
+    animation:dotBounce 1.1s infinite ease-in-out;
+  }
+  .dots span:nth-child(2){ animation-delay:0.15s; }
+  .dots span:nth-child(3){ animation-delay:0.3s; }
+  @keyframes dotBounce{
+    0%,60%,100%{ transform:translateY(0); opacity:0.5;}
+    30%{ transform:translateY(-4px); opacity:1;}
+  }
+
+  .hint{
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    text-align:center;
+    margin:0 0 22px;
+  }
+
+  /* --- theme strip --- */
+  .theme-panel{
+    width:100%;
+    max-width:640px;
+    text-align:center;
+  }
+  .theme-label{
+    font-family:'Fredoka', sans-serif;
+    font-size:0.85rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    margin:0 0 10px;
+    letter-spacing:0.03em;
+  }
+  .theme-strip{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+  }
+  .swatch{
+    width:30px; height:30px;
+    border-radius:50%;
+    border:2px solid var(--paper);
+    box-shadow:0 2px 6px rgba(90,70,50,0.18);
+    cursor:pointer;
+    padding:0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .swatch:hover{ transform:translateY(-2px) scale(1.08); }
+  .swatch.active{
+    box-shadow:0 0 0 2px var(--glow), 0 3px 8px rgba(90,70,50,0.22);
+    transform:scale(1.1);
+  }
+
+  @media (max-width:480px){
+    .stage{ gap:6vw; padding-bottom:16px; }
+    .character{ width:118px; height:160px; transform-origin:bottom center; scale:0.86; }
+    h1{ font-size:1.15rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="room">
+  <h1>Session Room</h1>
+  <p class="subtitle">Tap a figure to let them speak</p>
+
+  <div class="stage">
+
+    <div class="figure-wrap counsellor" id="counsellor-wrap" data-role="counsellor" tabindex="0" role="button" aria-label="Counsellor, tap to speak">
+      <div class="glow-ring"></div>
+      <div class="bubble-slot">
+        <div class="bubble" id="bubble-counsellor">
+          <div class="dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="character">
+        <div class="collar"></div>
+        <div class="body"></div>
+        <div class="head" id="head-counsellor">
+          <div class="ear left"></div>
+          <div class="ear right"></div>
+          <div class="hair bun"></div>
+          <div class="hair cap"></div>
+          <div class="face">
+            <div class="blush left"></div>
+            <div class="blush right"></div>
+            <div class="eye left"><div class="pupil"></div><div class="lid"></div></div>
+            <div class="eye right"><div class="pupil"></div><div class="lid"></div></div>
+            <div class="mouth"></div>
+          </div>
+        </div>
+      </div>
+      <div class="floor-shadow"></div>
+      <div class="name-tag">Counsellor</div>
+    </div>
+
+    <div class="figure-wrap client" id="client-wrap" data-role="client" tabindex="0" role="button" aria-label="Client, tap to speak">
+      <div class="glow-ring"></div>
+      <div class="bubble-slot">
+        <div class="bubble" id="bubble-client">
+          <div class="dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="character">
+        <div class="collar"></div>
+        <div class="body"></div>
+        <div class="head" id="head-client">
+          <div class="ear left"></div>
+          <div class="ear right"></div>
+          <div class="hair cap"></div>
+          <div class="hair fringe"></div>
+          <div class="hair fringe right"></div>
+          <div class="face">
+            <div class="blush left"></div>
+            <div class="blush right"></div>
+            <div class="eye left"><div class="pupil"></div><div class="lid"></div></div>
+            <div class="eye right"><div class="pupil"></div><div class="lid"></div></div>
+            <div class="mouth"></div>
+          </div>
+        </div>
+      </div>
+      <div class="floor-shadow"></div>
+      <div class="name-tag">Client</div>
+    </div>
+
+  </div>
+
+  <p class="hint">They glance at each other while talking, and follow your cursor while idle.</p>
+
+  <div class="theme-panel">
+    <p class="theme-label">Outfit colors</p>
+    <div class="theme-strip" id="theme-strip"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const roles = ['counsellor','client'];
+  const chars = {};
+  roles.forEach(role=>{
+    const wrap = document.getElementById(role + '-wrap');
+    chars[role] = {
+      role,
+      wrap,
+      head: document.getElementById('head-' + role),
+      eyes: Array.from(wrap.querySelectorAll('.pupil'))
+    };
+  });
+
+  /* ---------- eye tracking ---------- */
+  const mouse = { x: window.innerWidth/2, y: window.innerHeight/3 };
+  window.addEventListener('mousemove', e=>{ mouse.x = e.clientX; mouse.y = e.clientY; });
+  window.addEventListener('touchmove', e=>{
+    if(e.touches[0]){ mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; }
+  }, {passive:true});
+
+  let activeRole = null;
+
+  function centerOf(el){
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+
+  function updateEyes(){
+    roles.forEach(role=>{
+      const c = chars[role];
+      let target = mouse;
+      if(activeRole){
+        const otherRole = role === 'counsellor' ? 'client' : 'counsellor';
+        target = centerOf(chars[otherRole].head);
+      }
+      c.eyes.forEach(pupil=>{
+        const eyeEl = pupil.parentElement;
+        const rect = eyeEl.getBoundingClientRect();
+        const ex = rect.left + rect.width/2;
+        const ey = rect.top + rect.height/2;
+        let dx = target.x - ex;
+        let dy = target.y - ey;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const maxR = 4.2;
+        const nx = (dx/dist) * Math.min(maxR, dist/12);
+        const ny = (dy/dist) * Math.min(maxR, dist/12);
+        pupil.style.transform = `translate(${nx}px, ${ny}px)`;
+      });
+    });
+    requestAnimationFrame(updateEyes);
+  }
+  requestAnimationFrame(updateEyes);
+
+  /* ---------- blinking ---------- */
+  function scheduleBlink(role){
+    const delay = 2200 + Math.random()*3200;
+    setTimeout(()=>{
+      const wrap = chars[role].wrap;
+      wrap.classList.add('blink');
+      setTimeout(()=> wrap.classList.remove('blink'), 130);
+      scheduleBlink(role);
+    }, delay);
+  }
+  roles.forEach(scheduleBlink);
+
+  /* ---------- speak / listen toggle: typing dots + mouth movement only, no text ---------- */
+  function activate(role){
+    if(activeRole === role){
+      deactivate();
+      return;
+    }
+    activeRole = role;
+    roles.forEach(r=>{
+      const c = chars[r];
+      c.wrap.classList.toggle('speaking', r === role);
+      c.wrap.classList.toggle('listening', r !== role);
+      c.wrap.classList.toggle('talking', r === role);
+    });
+  }
+
+  function deactivate(){
+    activeRole = null;
+    roles.forEach(r=>{
+      chars[r].wrap.classList.remove('speaking','listening','talking');
+    });
+  }
+
+  roles.forEach(role=>{
+    const wrap = chars[role].wrap;
+    wrap.addEventListener('click', ()=> activate(role));
+    wrap.addEventListener('keydown', e=>{
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        activate(role);
+      }
+    });
+  });
+
+  /* ---------- 20 outfit themes ---------- */
+  const THEMES = [
+    { name:'Sage & Coral',        counsellor:'#5c9a7c', client:'#e08157' },
+    { name:'Teal & Amber',        counsellor:'#2f8f8a', client:'#e0a13a' },
+    { name:'Denim & Peach',       counsellor:'#3f6b96', client:'#eda07c' },
+    { name:'Plum & Mint',         counsellor:'#8a5a8f', client:'#5cbfa0' },
+    { name:'Forest & Blush',      counsellor:'#3f7d52', client:'#e79aa4' },
+    { name:'Mustard & Indigo',    counsellor:'#c99a2e', client:'#5b5aa6' },
+    { name:'Terracotta & Sky',    counsellor:'#c1633c', client:'#5b9bd5' },
+    { name:'Olive & Lavender',    counsellor:'#7a8a4a', client:'#a68fd6' },
+    { name:'Slate & Gold',        counsellor:'#556577', client:'#d9a63e' },
+    { name:'Burgundy & Seafoam',  counsellor:'#8a3b4a', client:'#5fb99e' },
+    { name:'Emerald & Salmon',    counsellor:'#2f9e6e', client:'#e88b7d' },
+    { name:'Mauve & Sage',        counsellor:'#9a6b84', client:'#7fae7a' },
+    { name:'Rust & Teal',         counsellor:'#b5522e', client:'#2f9494' },
+    { name:'Periwinkle & Tangerine', counsellor:'#6c7fd6', client:'#e8863e' },
+    { name:'Moss & Rose',         counsellor:'#5e7a4a', client:'#d76f8a' },
+    { name:'Wine & Mint',         counsellor:'#742f45', client:'#7fd6b0' },
+    { name:'Graphite & Lemon',    counsellor:'#4a4f57', client:'#dcbf3e' },
+    { name:'Coral & Navy',        counsellor:'#e08157', client:'#2e3f66' },
+    { name:'Berry & Sky',         counsellor:'#a13e6e', client:'#5b9bd5' },
+    { name:'Clay & Cream',        counsellor:'#b06a4a', client:'#d9b878' }
+  ];
+
+  function shade(hex, percent){
+    const num = parseInt(hex.slice(1),16);
+    let r = (num >> 16) + Math.round(255*percent);
+    let g = ((num >> 8) & 0x00FF) + Math.round(255*percent);
+    let b = (num & 0x0000FF) + Math.round(255*percent);
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+  }
+
+  function applyTheme(theme){
+    const root = document.documentElement.style;
+    root.setProperty('--counsellor-1', shade(theme.counsellor, 0.32));
+    root.setProperty('--counsellor-2', theme.counsellor);
+    root.setProperty('--counsellor-3', shade(theme.counsellor, -0.22));
+    root.setProperty('--client-1', shade(theme.client, 0.32));
+    root.setProperty('--client-2', theme.client);
+    root.setProperty('--client-3', shade(theme.client, -0.22));
+  }
+
+  const strip = document.getElementById('theme-strip');
+  THEMES.forEach((theme, i)=>{
+    const btn = document.createElement('button');
+    btn.className = 'swatch' + (i===0 ? ' active' : '');
+    btn.style.background = `linear-gradient(90deg, ${theme.counsellor} 50%, ${theme.client} 50%)`;
+    btn.title = theme.name;
+    btn.setAttribute('aria-label', theme.name);
+    btn.addEventListener('click', ()=>{
+      applyTheme(theme);
+      strip.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+    });
+    strip.appendChild(btn);
+  });
+
+  applyTheme(THEMES[0]);
+})();
+</script>
+</body>
+</html>
